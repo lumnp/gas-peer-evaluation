@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      margin: 0;
+    }
+
+    h3 { margin-top: 0; }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      margin-bottom: 4px;
+      font-weight: bold;
+    }
+
+    .status {
+      min-height: 1.2em;
+      color: #444;
+      margin-bottom: 10px;
+    }
+
+    .status.error { color: #c62828; }
+
+    select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      font-size: 16px;
+      margin: 4px 0 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+
+    button {
+      padding: 10px 16px;
+      font-size: 15px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background-color .2s, opacity .15s;
+    }
+
+    button:hover { background-color: #45a049; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+
+    .btn-secondary { background-color: #9e9e9e; }
+    .btn-secondary:hover { background-color: #8d8d8d; }
+  </style>
+</head>
+
+<body>
+  <h3>評価結果を送信</h3>
+
+  <div id="status" class="status" aria-live="polite">
+    授業一覧を読み込み中…
+  </div>
+
+  <label for="courseSelect">授業</label>
+  <select id="courseSelect" disabled>
+    <option value="">— 授業を選択してください —</option>
+  </select>
+
+  <label for="presenterSelect">発表者</label>
+  <select id="presenterSelect" disabled>
+    <option value="">— 発表者を選択してください —</option>
+  </select>
+
+  <div class="actions">
+    <button type="button" class="btn-secondary" onclick="google.script.host.close()">
+      キャンセル
+    </button>
+    <button id="sendBtn" type="button" onclick="sendResult()" disabled>
+      送信
+    </button>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const courseSelectEl = document.getElementById('courseSelect');
+    const presenterSelectEl = document.getElementById('presenterSelect');
+    const sendBtn = document.getElementById('sendBtn');
+
+    function setStatus(msg, isError = false) {
+      statusEl.textContent = msg || '';
+      statusEl.classList.toggle('error', !!isError);
+    }
+
+    google.script.run
+      .withSuccessHandler(loadCourses)
+      .withFailureHandler(err => {
+        setStatus(
+          '授業一覧の取得に失敗しました: ' +
+          (err && err.message ? err.message : ''),
+          true
+        );
+        courseSelectEl.disabled = true;
+        presenterSelectEl.disabled = true;
+        sendBtn.disabled = true;
+      })
+      .getCoursesForAdmin();
+
+    function loadCourses(courses) {
+      try {
+        if (!Array.isArray(courses) || courses.length === 0) {
+          setStatus('授業が登録されていません。「授業設定」シートをご確認ください。', true);
+          return;
+        }
+
+        courses.forEach(course => {
+          const option = document.createElement('option');
+          option.value = course.id;
+          option.textContent = course.name + (course.active ? '' : '（受付停止）');
+          courseSelectEl.appendChild(option);
+        });
+
+        setStatus('授業を選択してください。');
+        courseSelectEl.disabled = false;
+        courseSelectEl.focus();
+      } catch (e) {
+        setStatus('授業一覧の描画でエラー: ' + e.message, true);
+      }
+    }
+
+    courseSelectEl.addEventListener('change', loadPresentersForCourse);
+
+    function loadPresentersForCourse() {
+      const courseId = (courseSelectEl.value || '').trim();
+
+      presenterSelectEl.innerHTML =
+        '<option value="">— 発表者を選択してください —</option>';
+      presenterSelectEl.disabled = true;
+      sendBtn.disabled = true;
+
+      if (!courseId) {
+        setStatus('授業を選択してください。');
+        return;
+      }
+
+      setStatus('発表者一覧を読み込み中…');
+
+      google.script.run
+        .withSuccessHandler(loadPresenters)
+        .withFailureHandler(err => {
+          setStatus(
+            '発表者リストの取得に失敗しました: ' +
+            (err && err.message ? err.message : ''),
+            true
+          );
+          presenterSelectEl.disabled = true;
+          sendBtn.disabled = true;
+        })
+        .getPresenters(courseId);
+    }
+
+    function loadPresenters(presenters) {
+      try {
+        if (!Array.isArray(presenters) || presenters.length === 0) {
+          setStatus('この授業には発表者が登録されていません。', true);
+          presenterSelectEl.disabled = true;
+          sendBtn.disabled = true;
+          return;
+        }
+
+        presenterSelectEl.innerHTML =
+          '<option value="">— 発表者を選択してください —</option>';
+
+        presenters.forEach(presenter => {
+          const option = document.createElement('option');
+          option.value = presenter;
+          option.textContent = presenter;
+          presenterSelectEl.appendChild(option);
+        });
+
+        setStatus('発表者を選択してください。');
+        presenterSelectEl.disabled = false;
+        presenterSelectEl.focus();
+      } catch (e) {
+        setStatus('発表者リストの描画でエラー: ' + e.message, true);
+        presenterSelectEl.disabled = true;
+        sendBtn.disabled = true;
+      }
+    }
+
+    presenterSelectEl.addEventListener('change', () => {
+      sendBtn.disabled = !presenterSelectEl.value;
+      if (presenterSelectEl.value) setStatus('');
+    });
+
+    function sendResult() {
+      if (sendBtn.disabled) return;
+
+      const courseId = (courseSelectEl.value || '').trim();
+      const presenterName = (presenterSelectEl.value || '').trim();
+
+      if (!courseId) {
+        setStatus('授業を選択してください。', true);
+        courseSelectEl.focus();
+        return;
+      }
+
+      if (!presenterName) {
+        setStatus('発表者を選択してください。', true);
+        presenterSelectEl.focus();
+        return;
+      }
+
+      sendBtn.disabled = true;
+      courseSelectEl.disabled = true;
+      presenterSelectEl.disabled = true;
+      setStatus('送信中…');
+
+      google.script.run
+        .withSuccessHandler(resultMessage => {
+          setStatus(resultMessage || '送信が完了しました。');
+          setTimeout(() => google.script.host.close(), 600);
+        })
+        .withFailureHandler(err => {
+          setStatus(
+            'エラーが発生しました: ' +
+            (err && err.message ? err.message : ''),
+            true
+          );
+          courseSelectEl.disabled = false;
+          presenterSelectEl.disabled = false;
+          sendBtn.disabled = false;
+        })
+        .sendEvaluationResultForPresenter(courseId, presenterName);
+    }
+  </script>
+</body>
+</html>

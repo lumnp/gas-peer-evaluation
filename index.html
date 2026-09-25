@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-top: 0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .hidden { display: none; }
+
+    .entry-box {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .entry-label {
+      display: block;
+      margin-top: 16px;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+
+    .entry-select,
+    .entry-input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fff;
+    }
+
+    .course-info {
+      margin-bottom: 20px;
+      padding: 12px 16px;
+      background: #f1f8e9;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+
+    .course-change {
+      margin-top: 10px;
+      width: auto;
+      padding: 7px 12px;
+      font-size: 13px;
+      background-color: #757575;
+    }
+
+    .course-change:hover { background-color: #616161; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      table-layout: fixed;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px 8px;
+      text-align: left;
+      vertical-align: top;
+      word-break: break-word;
+    }
+
+    th {
+      background-color: #f2f2f2;
+      text-align: center;
+    }
+
+    th:first-child,
+    td:first-child { text-align: left; }
+
+    .student-select {
+      padding: 6px 8px;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      width: 240px;
+    }
+
+    .feedback-section { margin-bottom: 20px; }
+
+    .feedback-label {
+      display: block;
+      margin-top: 10px;
+      margin-bottom: 6px;
+    }
+
+    .feedback-textarea {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 90px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: vertical;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.3s, opacity 0.2s;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+
+    button:hover { background-color: #45a049; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .error {
+      color: #c62828;
+      text-align: center;
+      margin-bottom: 15px;
+      min-height: 1em;
+    }
+
+    .clickable-cell {
+      cursor: pointer;
+      text-align: center;
+      user-select: none;
+    }
+
+    .selected {
+      background-color: #d3f4d1;
+      font-weight: bold;
+    }
+
+    @media (max-width: 640px) {
+      th, td { padding: 12px 6px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>模擬授業相互評価フォーム</h1>
+
+    <div id="entrySection">
+      <div class="entry-box">
+        <div id="entryError" class="error" aria-live="polite"></div>
+
+        <label class="entry-label" for="courseSelect">授業:</label>
+        <select id="courseSelect" class="entry-select" disabled>
+          <option value="">選択してください</option>
+        </select>
+
+        <label class="entry-label" for="courseCode">授業コード:</label>
+        <input
+          id="courseCode"
+          class="entry-input"
+          type="text"
+          autocomplete="off"
+          inputmode="text"
+          placeholder="授業コードを入力してください"
+        >
+
+        <div style="margin-top: 20px;">
+          <button id="enterBtn" type="button" onclick="enterCourse()" disabled>
+            評価フォームへ
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="evaluationSection" class="hidden">
+      <div class="course-info">
+        <div id="courseNameDisplay"></div>
+        <button type="button" class="course-change" onclick="returnToCourseSelection()">
+          授業を変更
+        </button>
+      </div>
+
+      <form id="evaluationForm" onsubmit="return false;">
+        <div id="error" class="error" aria-live="polite"></div>
+
+        <label for="studentId">発表者:</label><br>
+        <select id="studentId" name="studentId" class="student-select" required>
+          <option value="">選択してください</option>
+        </select>
+
+        <table aria-label="評価観点">
+          <thead>
+            <tr>
+              <th>評価観点</th>
+              <th style="width: 7%;">良い</th>
+              <th style="width: 9%;">やや良い</th>
+              <th style="width: 10%;">やや悪い</th>
+              <th style="width: 7%;">悪い</th>
+            </tr>
+          </thead>
+          <tbody id="criteriaTable"></tbody>
+        </table>
+
+        <h2>授業者へのフィードバック</h2>
+
+        <div class="feedback-section">
+          <label for="positiveFeedback" class="feedback-label">
+            今後も続けてほしい授業での良かった点:
+          </label>
+          <textarea
+            id="positiveFeedback"
+            name="positiveFeedback"
+            class="feedback-textarea"
+            maxlength="2000"
+            placeholder="例：板書構成がわかりやすかった、問い返しが適切だった など"
+          ></textarea>
+        </div>
+
+        <div class="feedback-section">
+          <label for="improvementFeedback" class="feedback-label">
+            今後に向けて検討して欲しい授業の改善点:
+          </label>
+          <textarea
+            id="improvementFeedback"
+            name="improvementFeedback"
+            class="feedback-textarea"
+            maxlength="2000"
+            placeholder="例：説明のテンポ、活動の切り替えタイミング、発問の具体性 など"
+          ></textarea>
+        </div>
+
+        <div class="feedback-section">
+          <label for="insufficientPreparation" class="feedback-label">
+            授業者の準備不足を感じた点:
+          </label>
+          <textarea
+            id="insufficientPreparation"
+            name="insufficientPreparation"
+            class="feedback-textarea"
+            maxlength="2000"
+            placeholder="任意"
+          ></textarea>
+        </div>
+
+        <button id="submitBtn" type="button" onclick="confirmSubmit()">送信</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let currentCourseId = '';
+    let currentCourseName = '';
+    let currentCourseCode = '';
+
+    const criteria = {};
+    const CRITERIA_COUNT = 10;
+
+    const criteriaData = [
+      '教材が適切に選定され，授業内容との整合性があるかどうか。',
+      '教師の説明が明瞭で，生徒が内容を理解しやすいかどうか。',
+      '教材が有効に活用され，授業を豊かにする役割を果たしているかどうか。',
+      '教師が積極的に生徒の参加を促し，質問やディスカッションに参加しているかどうか。',
+      '教師が適切なフィードバックを提供し，生徒の成長をサポートしているかどうか。',
+      '既習事項と関連付け，効率的で組織的な授業運営となっているかどうか。',
+      '授業の目標が達成されており，学習成果が得られているかどうか。',
+      '教師が生徒の異なる学習スタイルやニーズ，習熟状況を配慮しているかどうか。',
+      '授業内での時間管理が適切で，すべての内容がカバーされているかどうか。',
+      '声量，話すスピード，表情や立ち位置等の振る舞いが教師として適切かどうか。'
+    ];
+
+    function loadCriteriaTable() {
+      const tbody = document.getElementById('criteriaTable');
+      tbody.innerHTML = '';
+
+      criteriaData.forEach((text, index) => {
+        const row = document.createElement('tr');
+
+        const labelCell = document.createElement('td');
+        labelCell.textContent = text;
+        row.appendChild(labelCell);
+
+        for (let i = 4; i >= 1; i--) {
+          const scoreCell = document.createElement('td');
+          scoreCell.classList.add('clickable-cell');
+          scoreCell.setAttribute('role', 'button');
+          scoreCell.setAttribute('tabindex', '0');
+          scoreCell.setAttribute('aria-label', `観点${index + 1} のスコア ${i}`);
+          scoreCell.dataset.score = String(i);
+          scoreCell.dataset.criterion = `criterion_${index}`;
+          scoreCell.textContent = i;
+          row.appendChild(scoreCell);
+        }
+
+        tbody.appendChild(row);
+      });
+
+      tbody.addEventListener('click', onScoreActivate);
+      tbody.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          const cell = e.target.closest('.clickable-cell');
+          if (cell) {
+            e.preventDefault();
+            onScoreActivate(e);
+          }
+        }
+      });
+    }
+
+    function onScoreActivate(e) {
+      const cell = e.target.closest('.clickable-cell');
+      if (!cell) return;
+
+      const criterion = cell.dataset.criterion;
+      const score = cell.dataset.score;
+
+      document
+        .querySelectorAll(`[data-criterion="${criterion}"]`)
+        .forEach(c => c.classList.remove('selected'));
+
+      cell.classList.add('selected');
+      criteria[criterion] = score;
+    }
+
+    function loadCourses(courses) {
+      const select = document.getElementById('courseSelect');
+      const enterBtn = document.getElementById('enterBtn');
+
+      if (!Array.isArray(courses) || courses.length === 0) {
+        setEntryError('現在、受付中の授業はありません。');
+        select.disabled = true;
+        enterBtn.disabled = true;
+        return;
+      }
+
+      courses.forEach(course => {
+        const option = document.createElement('option');
+        option.value = course.id;
+        option.textContent = course.name;
+        select.appendChild(option);
+      });
+
+      select.disabled = false;
+      enterBtn.disabled = false;
+
+      google.script.url.getLocation(location => {
+        const courseFromUrl = location.parameter.course || '';
+
+        if (courseFromUrl) {
+          const exists = courses.some(course => course.id === courseFromUrl);
+          if (exists) {
+            select.value = courseFromUrl;
+          } else {
+            setEntryError('URLで指定された授業は現在受付中ではありません。');
+          }
+        } else if (courses.length === 1) {
+          select.value = courses[0].id;
+        }
+      });
+    }
+
+    function setEntryError(message) {
+      document.getElementById('entryError').textContent = message || '';
+    }
+
+    function enterCourse() {
+      const courseSelect = document.getElementById('courseSelect');
+      const codeInput = document.getElementById('courseCode');
+      const enterBtn = document.getElementById('enterBtn');
+
+      const courseId = (courseSelect.value || '').trim();
+      const courseCode = (codeInput.value || '').trim();
+
+      if (!courseId) {
+        setEntryError('授業を選択してください。');
+        return;
+      }
+
+      if (!courseCode) {
+        setEntryError('授業コードを入力してください。');
+        codeInput.focus();
+        return;
+      }
+
+      setEntryError('');
+      enterBtn.disabled = true;
+      enterBtn.textContent = '確認中…';
+
+      google.script.run
+        .withSuccessHandler(courseInfo => {
+          google.script.run
+            .withSuccessHandler(studentIds => {
+              if (!Array.isArray(studentIds) || studentIds.length === 0) {
+                setEntryError('この授業には発表者が登録されていません。');
+                enterBtn.disabled = false;
+                enterBtn.textContent = '評価フォームへ';
+                return;
+              }
+
+              currentCourseId = courseInfo.courseId;
+              currentCourseName = courseInfo.courseName;
+              currentCourseCode = courseCode;
+
+              loadStudentIds(studentIds);
+              document.getElementById('courseNameDisplay').textContent = currentCourseName;
+              document.getElementById('entrySection').classList.add('hidden');
+              document.getElementById('evaluationSection').classList.remove('hidden');
+              window.scrollTo(0, 0);
+
+              enterBtn.disabled = false;
+              enterBtn.textContent = '評価フォームへ';
+            })
+            .withFailureHandler(err => {
+              setEntryError(err && err.message ? err.message : '発表者一覧の取得に失敗しました。');
+              enterBtn.disabled = false;
+              enterBtn.textContent = '評価フォームへ';
+            })
+            .getStudentIds(courseId, courseCode);
+        })
+        .withFailureHandler(err => {
+          setEntryError(err && err.message ? err.message : '授業の確認に失敗しました。');
+          enterBtn.disabled = false;
+          enterBtn.textContent = '評価フォームへ';
+        })
+        .verifyCourseAccess(courseId, courseCode);
+    }
+
+    function returnToCourseSelection() {
+      resetForm();
+      currentCourseId = '';
+      currentCourseName = '';
+      currentCourseCode = '';
+
+      document.getElementById('studentId').innerHTML =
+        '<option value="">選択してください</option>';
+      document.getElementById('courseCode').value = '';
+      document.getElementById('evaluationSection').classList.add('hidden');
+      document.getElementById('entrySection').classList.remove('hidden');
+      setEntryError('');
+      window.scrollTo(0, 0);
+    }
+
+    function loadStudentIds(studentIds) {
+      const select = document.getElementById('studentId');
+      select.innerHTML = '<option value="">選択してください</option>';
+
+      studentIds.forEach(id => {
+        const option = document.createElement('option');
+        option.value = id;
+        option.textContent = id;
+        select.appendChild(option);
+      });
+    }
+
+    function showDialog(title, message, onOk) {
+      const dialogOverlay = document.createElement('div');
+      Object.assign(dialogOverlay.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        zIndex: '1000',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      });
+
+      const dialogBox = document.createElement('div');
+      Object.assign(dialogBox.style, {
+        backgroundColor: '#fff',
+        padding: '20px',
+        borderRadius: '8px',
+        boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)',
+        width: '320px',
+        textAlign: 'center'
+      });
+
+      const dialogTitle = document.createElement('h3');
+      dialogTitle.textContent = title;
+
+      const dialogMessage = document.createElement('p');
+      dialogMessage.textContent = message;
+
+      const buttonContainer = document.createElement('div');
+      Object.assign(buttonContainer.style, {
+        marginTop: '20px',
+        display: 'flex',
+        gap: '10px',
+        justifyContent: 'center'
+      });
+
+      const okButton = document.createElement('button');
+      okButton.textContent = 'OK';
+      okButton.addEventListener('click', () => {
+        document.body.removeChild(dialogOverlay);
+        if (onOk) onOk();
+      });
+
+      const cancelButton = document.createElement('button');
+      cancelButton.textContent = 'キャンセル';
+      cancelButton.style.backgroundColor = '#f44336';
+      cancelButton.addEventListener('click', () => {
+        document.body.removeChild(dialogOverlay);
+      });
+
+      buttonContainer.appendChild(okButton);
+      if (onOk) buttonContainer.appendChild(cancelButton);
+
+      dialogBox.append(dialogTitle, dialogMessage, buttonContainer);
+      dialogOverlay.appendChild(dialogBox);
+      document.body.appendChild(dialogOverlay);
+    }
+
+    function setError(msg) {
+      document.getElementById('error').innerText = msg || '';
+    }
+
+    function confirmSubmit() {
+      const btn = document.getElementById('submitBtn');
+      if (btn.disabled) return;
+
+      showDialog('確認', '評価を送信しますか？', () => {
+        btn.disabled = true;
+        btn.textContent = '送信中…';
+
+        submitForm().finally(() => {
+          btn.disabled = false;
+          btn.textContent = '送信';
+        });
+      });
+    }
+
+    function submitForm() {
+      const form = document.getElementById('evaluationForm');
+      const studentId = document.getElementById('studentId').value;
+
+      if (!currentCourseId || !currentCourseCode) {
+        setError('授業情報が確認できません。もう一度授業を選択してください。');
+        return Promise.resolve();
+      }
+
+      if (!studentId) {
+        setError('発表者を選択してください。');
+        return Promise.resolve();
+      }
+
+      if (Object.keys(criteria).length < CRITERIA_COUNT) {
+        setError('選択式の10項目全てに回答してください。');
+        return Promise.resolve();
+      }
+
+      setError('');
+
+      const orderedCriteria = Array.from(
+        { length: CRITERIA_COUNT },
+        (_, i) => criteria[`criterion_${i}`]
+      );
+
+      return new Promise(resolve => {
+        google.script.run
+          .withSuccessHandler(response => {
+            if (response && response.error) {
+              setError(response.error);
+              resolve();
+              return;
+            }
+
+            const formData = {
+              courseId: currentCourseId,
+              courseCode: currentCourseCode,
+              studentId,
+              criteria: orderedCriteria,
+              positiveFeedback: (form.positiveFeedback.value || '').trim(),
+              improvementFeedback: (form.improvementFeedback.value || '').trim(),
+              insufficientPreparation: (form.insufficientPreparation.value || '').trim()
+            };
+
+            google.script.run
+              .withSuccessHandler(() => {
+                resetForm();
+                showDialog('完了', '送信が完了しました。');
+                resolve();
+              })
+              .withFailureHandler(err => {
+                setError(err && err.message ? err.message : '送信に失敗しました。');
+                resolve();
+              })
+              .processForm(formData);
+          })
+          .withFailureHandler(err => {
+            setError(err && err.message ? err.message : '確認中にエラーが発生しました。');
+            resolve();
+          })
+          .checkEvaluationStatus(currentCourseId, studentId, currentCourseCode);
+      });
+    }
+
+    function resetForm() {
+      const form = document.getElementById('evaluationForm');
+      form.reset();
+
+      document
+        .querySelectorAll('.selected')
+        .forEach(cell => cell.classList.remove('selected'));
+
+      for (const k of Object.keys(criteria)) {
+        delete criteria[k];
+      }
+
+      setError('');
+    }
+
+    loadCriteriaTable();
+
+    google.script.run
+      .withSuccessHandler(loadCourses)
+      .withFailureHandler(err => {
+        setEntryError(err && err.message ? err.message : '授業一覧の取得に失敗しました。');
+      })
+      .getActiveCourses();
+  </script>
+</body>
+</html>
